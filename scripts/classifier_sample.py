@@ -52,6 +52,7 @@ def main():
     classifier.eval()
 
     def cond_fn(x, t, y=None):
+        #import pdb; pdb.set_trace()
         assert y is not None
         with th.enable_grad():
             x_in = x.detach().requires_grad_(True)
