@@ -2,7 +2,7 @@
 Train a diffusion model on images.
 """
 import wandb 
-wandb.init(project="adm-stl-init", entity="research")
+wandb.init(project="adm-stl", entity="research")
 
 import argparse
 import pdb
