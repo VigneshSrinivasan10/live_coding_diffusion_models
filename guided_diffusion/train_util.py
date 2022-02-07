@@ -181,7 +181,6 @@ class TrainLoop:
         sample_fn = (
             self.diffusion.p_sample_loop if not self.use_ddim else self.diffusion.ddim_sample_loop
         )
-        #import pdb; pdb.set_trace()
         sample = sample_fn(
             self.model,
             (self.batch_size, 3, 256, 256), # remove hardcode later
@@ -192,7 +191,8 @@ class TrainLoop:
         sample = sample.permute(0, 2, 3, 1)
         sample = sample.contiguous()
 
-        gathered_samples = th.cat([th.zeros_like(sample) for _ in range(dist.get_world_size())])
+        gathered_samples = th.cat([th.zeros_like(sample) for _ in range(dist.get_world_size())]).permute(0,3,1,2)
+        import pdb; pdb.set_trace()
         grid_img = torchvision.utils.make_grid(gathered_samples, nrow=4)
         self.wandb.log({"images": self.wandb.Image(grid_img.float())})
           
