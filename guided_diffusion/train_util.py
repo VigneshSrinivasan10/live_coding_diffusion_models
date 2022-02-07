@@ -192,7 +192,7 @@ class TrainLoop:
         sample = sample.contiguous()
 
         gathered_samples = th.cat([th.zeros_like(sample) for _ in range(dist.get_world_size())]).permute(0,3,1,2)
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         grid_img = torchvision.utils.make_grid(gathered_samples, nrow=4)
         self.wandb.log({"images": self.wandb.Image(grid_img.float())})
           
