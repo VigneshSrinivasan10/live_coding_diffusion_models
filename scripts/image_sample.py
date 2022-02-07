@@ -30,9 +30,13 @@ def main():
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
+    # print(model.out[0].weight.mean(), model.out[0].weight.var(),model.out[2].weight.mean())
+    # import pdb; pdb.set_trace()
     model.load_state_dict(
         dist_util.load_state_dict(args.model_path, map_location="cpu")
     )
+    # print(model.out[0].weight.mean(), model.out[0].weight.var(),model.out[2].weight.mean())
+    # import pdb; pdb.set_trace()
     model.to(dist_util.dev())
     if args.use_fp16:
         model.convert_to_fp16()

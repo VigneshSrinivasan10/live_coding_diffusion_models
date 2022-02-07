@@ -1,11 +1,44 @@
 import math
 import random
 
-from PIL import Image
+from PIL import Image, ImageOps
 import blobfile as bf
 from mpi4py import MPI
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
+
+
+import torchvision.transforms as transforms
+
+class SquarePad:
+	def __call__(self, image):
+		w, h = image.size
+		max_wh = np.max([w, h])
+		hp = int((max_wh - w) / 2)
+		vp = int((max_wh - h) / 2)
+		padding = (hp, vp, hp, vp)
+		return F.pad(image, padding, 0, 'constant')
+
+def padding(img, expected_size):
+    desired_size = expected_size
+    delta_width = desired_size - img.size[0]
+    delta_height = desired_size - img.size[1]
+    pad_width = delta_width // 2
+    pad_height = delta_height // 2
+    padding = (pad_width, pad_height, delta_width - pad_width, delta_height - pad_height)
+    return ImageOps.expand(img, padding, fill='white') #'(255, 255, 255, 255))
+
+
+def resize_with_padding(img, expected_size):
+    img.thumbnail((expected_size[0], expected_size[1]))
+    # print(img.size)
+    delta_width = expected_size[0] - img.size[0]
+    delta_height = expected_size[1] - img.size[1]
+    pad_width = delta_width // 2
+    pad_height = delta_height // 2
+    padding = (pad_width, pad_height, delta_width - pad_width, delta_height - pad_height)
+    #return ImageOps.expand(img, padding, fill=(255,255,255))
+    return ImageOps.expand(img, padding, fill=tuple(np.array(img)[0,0]))
 
 
 def load_data(
@@ -55,9 +88,13 @@ def load_data(
         random_crop=random_crop,
         random_flip=random_flip,
     )
-    # import pdb; pdb.set_trace()
     # import matplotlib.pyplot as plt
     # plt.imshow('check_imgs/img.png', dataset[0][0])
+    # now use it as the replacement of transforms.Pad class
+    # transform=transforms.Compose([ 
+    #     SquarePad(),
+    #     transforms.ToTensor(),
+    # ])
     if deterministic:
         loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=False, num_workers=1, drop_last=True
@@ -110,9 +147,16 @@ class ImageDataset(Dataset):
             pil_image.load()
         pil_image = pil_image.convert("RGB")
         #print(pil_image.size)
-        pil_image = pil_image.resize((pil_image.size[0]//2,pil_image.size[1]//2), Image.ANTIALIAS)
+        #pil_image = pil_image.resize((pil_image.size[0]//2,pil_image.size[1]//2), Image.ANTIALIAS)
         #print(pil_image.size)
+        #pil_image.save("check_imgs/orig_img.jpg")
 
+        #import pdb; pdb.set_trace()
+        pil_image = resize_with_padding(pil_image, (256, 256))
+        #print(pil_image.size)
+        #pil_image.save("check_imgs/resized_img.jpg")
+
+        #print('Saved images --> look at check imgs folder');import sys; sys.exit()
         if self.random_crop:
             arr = random_crop_arr(pil_image, self.resolution)
         else:

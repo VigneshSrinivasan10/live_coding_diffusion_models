@@ -7,6 +7,7 @@ import torch as th
 import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
+import torchvision
 
 from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
@@ -38,6 +39,7 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
+        wandb='',
     ):
         self.model = model
         self.diffusion = diffusion
@@ -107,9 +109,11 @@ class TrainLoop:
             self.use_ddp = False
             self.ddp_model = self.model
 
+        self.wandb = wandb  
+            
     def _load_and_sync_parameters(self):
         resume_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
-
+        #import pdb; pdb.set_trace()
         if resume_checkpoint:
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
             if dist.get_rank() == 0:
@@ -119,6 +123,7 @@ class TrainLoop:
                         resume_checkpoint, map_location=dist_util.dev()
                     )
                 )
+                print('finished loading')
 
         dist_util.sync_params(self.model.parameters())
 
@@ -159,7 +164,8 @@ class TrainLoop:
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
-            if self.step % self.save_interval == 0:
+            if self.step % self.save_interval == 0:# and self.step!=0:
+                self.log_samples()
                 self.save()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
@@ -169,6 +175,30 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
+    def log_samples(self):
+        self.use_ddim = False # remove hardcode later
+        model_kwargs = {}
+        sample_fn = (
+            self.diffusion.p_sample_loop if not self.use_ddim else self.diffusion.ddim_sample_loop
+        )
+        #import pdb; pdb.set_trace()
+        sample = sample_fn(
+            self.model,
+            (self.batch_size, 3, 256, 256), # remove hardcode later
+            clip_denoised=True, 
+            model_kwargs=model_kwargs,
+        )
+        sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
+        sample = sample.permute(0, 2, 3, 1)
+        sample = sample.contiguous()
+
+        gathered_samples = th.cat([th.zeros_like(sample) for _ in range(dist.get_world_size())])
+        grid_img = torchvision.utils.make_grid(gathered_samples, nrow=4)
+        self.wandb.log({"images": self.wandb.Image(grid_img.float())})
+          
+        # dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
+        # all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
+        
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
         took_step = self.mp_trainer.optimize(self.opt)
@@ -208,6 +238,11 @@ class TrainLoop:
                 )
 
             loss = (losses["loss"] * weights).mean()
+            #import pdb; pdb.set_trace()
+            self.wandb.log({"loss": (losses["loss"]* weights).mean()})
+            self.wandb.log({"mse": (losses["mse"]* weights).mean()})
+            self.wandb.log({"vb": (losses["vb"]* weights).mean()})
+
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
@@ -235,9 +270,11 @@ class TrainLoop:
             if dist.get_rank() == 0:
                 logger.log(f"saving model {rate}...")
                 if not rate:
-                    filename = f"model{(self.step+self.resume_step):06d}.pt"
+                    #filename = f"model{(self.step+self.resume_step):06d}.pt"
+                    filename = f"model.pt"
                 else:
-                    filename = f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
+                    #filename = f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
+                    filename = f"ema_{rate}.pt"
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
 
@@ -247,13 +284,14 @@ class TrainLoop:
 
         if dist.get_rank() == 0:
             with bf.BlobFile(
-                bf.join(get_blob_logdir(), f"opt{(self.step+self.resume_step):06d}.pt"),
+                #bf.join(get_blob_logdir(), f"opt{(self.step+self.resume_step):06d}.pt"),
+                bf.join(get_blob_logdir(), f"opt.pt"),
                 "wb",
             ) as f:
                 th.save(self.opt.state_dict(), f)
 
         dist.barrier()
-
+        
 
 def parse_resume_step_from_filename(filename):
     """

@@ -1,8 +1,11 @@
 """
 Train a diffusion model on images.
 """
+import wandb 
+wandb.init(project="adm-stl-init", entity="research")
 
 import argparse
+import pdb
 
 from guided_diffusion import dist_util, logger
 from guided_diffusion.image_datasets import load_data
@@ -22,6 +25,7 @@ def main():
     dist_util.setup_dist()
     logger.configure()
 
+    wandb.config = vars(args)       
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
@@ -54,6 +58,7 @@ def main():
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
+        wandb=wandb,
     ).run_loop()
 
 
