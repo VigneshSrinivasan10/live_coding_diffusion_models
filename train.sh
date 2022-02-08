@@ -25,7 +25,7 @@ export PYTHONPATH=$(pwd)
 export OPENAI_LOGDIR=/home/vsrinivasan/Projects/guided-diffusion/training/${training_folder}
 
 # CLASSIFIER_FLAGS="--image_size 512 --classifier_attention_resolutions 32,16,8 --classifier_depth 2 --classifier_width 128 --classifier_pool attention --classifier_resblock_updown True --classifier_use_scale_shift_norm True --classifier_scale 1.0 --classifier_use_fp16 True"
-TRAIN_FLAGS="--batch_size 4 --lr 3e-6 --save_interval 5000 --weight_decay 0.05"
+TRAIN_FLAGS="--batch_size 16 --lr 3e-6 --save_interval 5000 --weight_decay 0.05"
 mpiexec -n 1 python  scripts/image_train.py \
 	--data_dir ${data_folder} \
 	--image_size 256 \

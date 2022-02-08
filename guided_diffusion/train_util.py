@@ -205,7 +205,7 @@ class TrainLoop:
         sample = sample.contiguous()
 
         # gathered_samples = th.cat([sample for _ in range(dist.get_world_size())]).permute(0,3,1,2)
-        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0])
+        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4)
         self.wandb.log({"images": self.wandb.Image(grid_img.float())})
           
         # dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
