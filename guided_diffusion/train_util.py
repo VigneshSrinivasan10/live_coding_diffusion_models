@@ -1,6 +1,7 @@
 import copy
 import functools
 import os
+import pdb
 
 import blobfile as bf
 import torch as th
@@ -118,10 +119,20 @@ class TrainLoop:
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
             if dist.get_rank() == 0:
                 logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
-                self.model.load_state_dict(
-                    dist_util.load_state_dict(
+                # self.model.to("cpu")
+                # print(next(self.model.parameters()).is_cuda)
+                # import pdb; pdb.set_trace()
+                # self.model.load_state_dict(
+                #     dist_util.load_state_dict(resume_checkpoint, map_location="cpu")
+                # )
+                # import pdb; pdb.set_trace()
+                
+                check = dist_util.load_state_dict(
                         resume_checkpoint, map_location=dist_util.dev()
-                    )
+                )
+                print('finished loading using dist util')
+                self.model.load_state_dict(
+                    check
                 )
                 print('finished loading')
 
@@ -188,13 +199,13 @@ class TrainLoop:
             clip_denoised=True, 
             model_kwargs=model_kwargs,
         )
+        #import pdb; pdb.set_trace()
         sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-        sample = sample.permute(0, 2, 3, 1)
+        #sample = sample.permute(0, 2, 3, 1)
         sample = sample.contiguous()
 
-        gathered_samples = th.cat([th.zeros_like(sample) for _ in range(dist.get_world_size())]).permute(0,3,1,2)
-        #import pdb; pdb.set_trace()
-        grid_img = torchvision.utils.make_grid(gathered_samples, nrow=4)
+        # gathered_samples = th.cat([sample for _ in range(dist.get_world_size())]).permute(0,3,1,2)
+        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0])
         self.wandb.log({"images": self.wandb.Image(grid_img.float())})
           
         # dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL

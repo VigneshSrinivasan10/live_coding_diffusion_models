@@ -2,7 +2,7 @@
 Train a diffusion model on images.
 """
 import wandb 
-wandb.init(project="adm-stl", entity="research")
+wandb.init(project="adm-stl-resume", entity="research")
 
 import argparse
 import pdb
@@ -30,9 +30,9 @@ def main():
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
-    model.to(dist_util.dev())
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
-
+    model.to(dist_util.dev())
+        
     logger.log("creating data loader...")
     data = load_data(
         data_dir=args.data_dir,
