@@ -15,7 +15,7 @@ if [ "${reload}" = "True" ]; then
 	fi
     else
 	model_path="training/07_02_2022_13_46_05_256_from_scratch/model.pt" # add the model here
-	model_path='training/08_02_2022_13_52_55_256_resume_training/model.pt'
+	#model_path='training/08_02_2022_13_52_55_256_resume_training/model.pt'
     fi
     reload_ckpt="--use_checkpoint True --resume_checkpoint ${model_path}"
 else

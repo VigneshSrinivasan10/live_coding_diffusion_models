@@ -3,6 +3,7 @@ import functools
 import os
 import pdb
 import time
+from tqdm import tqdm 
     
 import blobfile as bf
 import torch as th
@@ -10,6 +11,7 @@ import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 import torchvision
+from ignite.metrics.gan import FID
 
 from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
@@ -168,7 +170,7 @@ class TrainLoop:
             self.opt.load_state_dict(state_dict)
 
     def run_loop(self):
-        self.current_running_avg_mse = 1e7
+        self.previous_best = 1e7
         counter_to_stop = 0 
         while (
             not self.lr_anneal_steps
@@ -178,11 +180,13 @@ class TrainLoop:
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
-            # if self.step % (self.log_interval*100) == 0:
-            #     self.log_samples()    
+            if self.step % (self.log_interval*100) == 0:
+                self.log_samples()    
             if self.step % self.save_interval == 0:# and self.step > 0:
-                if self.running_avg_mse < self.current_running_avg_mse:
-                    self.current_running_avg_mse = self.running_avg_mse 
+                if self.step < 100000:
+                    self.save() 
+                elif self.running_avg_mse < self.previous_best:
+                    self.previous_best = self.running_avg_mse 
                     counter_to_stop = 0
                     self.save()
                 else:
@@ -207,20 +211,32 @@ class TrainLoop:
             self.diffusion.p_sample_loop if not self.use_ddim else self.diffusion.ddim_sample_loop
         )
 
-        compute_fid_score =False
+        compute_fid_score = True
         # if self.step % 50000 == 0: # and self.step > 0:
         #     compute_fid_score = True
 
         if compute_fid_score:
-            total_num_samples = 100
+            total_num_samples = 16
             iters = total_num_samples // self.batch_size
         else:
             iters = 1
 
-        timer = Timer()
-        ### Generate fake samples from the model 
-        all_fake_samples = [] 
+        self.model.eval()
+        logger.log(f"Generating real images from the dataset...")
+        all_real_samples = [] 
         for ii in range(iters):
+            batch, cond = next(self.data)
+            all_real_samples += [batch]
+        
+        grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
+        self.wandb.log({"Real images": self.wandb.Image(grid_img)})
+
+        timer = Timer()
+        timer.begin()
+        ### Generate fake samples from the model 
+        logger.log(f"Generating fake images from the model...")
+        all_fake_samples = [] 
+        for ii in tqdm(range(iters)):
             sample = sample_fn(
                 self.model,
                 (self.batch_size, 3, 256, 256), # remove hardcode later
@@ -234,20 +250,20 @@ class TrainLoop:
 
         # Plot only a subset of it on WB 
         grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
-        self.wandb.log({"images": self.wandb.Image(grid_img)})
+        self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
+        timer.stop()
 
+        timer.begin()
         # Compute FID score 
         if compute_fid_score:
+            logger.log(f"Computing FID score...")
             ### Generate samples from the training data 
-            all_real_samples = [] 
-            for ii in range(iters):
-                batch, cond = next(self.data)
-                all_real_samples += [batch]
-        
             assert len(all_real_samples) == len(all_fake_samples)
 
+            all_real_samples = th.stack(all_real_samples)[0]
+            all_fake_samples = th.stack(all_fake_samples)[0]
+            
             ### Compute FID score using Pytorch ignite.metrics
-            print("computing FID score...")
             metric = FID()
             metric.update((all_fake_samples, all_real_samples))
             fid_score = metric.compute()
@@ -431,6 +447,9 @@ class AverageMeter(object):
 class Timer():
     """Computes time taken between two lines of code"""
     def __init__(self):
+        self.reset()
+
+    def begin(self): 
         self.start = time.time()
 
     def stop(self):
