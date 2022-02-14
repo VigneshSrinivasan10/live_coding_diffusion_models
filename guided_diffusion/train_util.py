@@ -2,7 +2,8 @@ import copy
 import functools
 import os
 import pdb
-
+import time
+    
 import blobfile as bf
 import torch as th
 import torch.distributed as dist
@@ -167,6 +168,8 @@ class TrainLoop:
             self.opt.load_state_dict(state_dict)
 
     def run_loop(self):
+        self.current_running_avg_mse = 1e7
+        counter_to_stop = 0 
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
@@ -175,10 +178,20 @@ class TrainLoop:
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
-            if self.step % (self.log_interval*100) == 0:
-                self.log_samples()    
-            if self.step % self.save_interval == 0:# and self.step!=0:
-                self.save()
+            # if self.step % (self.log_interval*100) == 0:
+            #     self.log_samples()    
+            if self.step % self.save_interval == 0:# and self.step > 0:
+                if self.running_avg_mse < self.current_running_avg_mse:
+                    self.current_running_avg_mse = self.running_avg_mse 
+                    counter_to_stop = 0
+                    self.save()
+                else:
+                    print('The running avg MSE is growing, so skipped saving the model')
+                    counter_to_stop += 1
+                    if counter_to_stop == 5:
+                        print('The running avg MSE is growing for the last 5xsave_interval iters...ABANDON SHIP!!!')
+                        import sys
+                        sys.exit()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                     return
@@ -193,23 +206,55 @@ class TrainLoop:
         sample_fn = (
             self.diffusion.p_sample_loop if not self.use_ddim else self.diffusion.ddim_sample_loop
         )
-        sample = sample_fn(
-            self.model,
-            (self.batch_size, 3, 256, 256), # remove hardcode later
-            clip_denoised=True, 
-            model_kwargs=model_kwargs,
-        )
-        #import pdb; pdb.set_trace()
-        sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-        #sample = sample.permute(0, 2, 3, 1)
-        sample = sample.contiguous()
 
-        # gathered_samples = th.cat([sample for _ in range(dist.get_world_size())]).permute(0,3,1,2)
-        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4)
-        self.wandb.log({"images": self.wandb.Image(grid_img.float())})
-          
-        # dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
-        # all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
+        compute_fid_score =False
+        # if self.step % 50000 == 0: # and self.step > 0:
+        #     compute_fid_score = True
+
+        if compute_fid_score:
+            total_num_samples = 100
+            iters = total_num_samples // self.batch_size
+        else:
+            iters = 1
+
+        timer = Timer()
+        ### Generate fake samples from the model 
+        all_fake_samples = [] 
+        for ii in range(iters):
+            sample = sample_fn(
+                self.model,
+                (self.batch_size, 3, 256, 256), # remove hardcode later
+                clip_denoised=True, 
+                model_kwargs=model_kwargs,
+            )
+            sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
+            sample = sample.contiguous()
+
+            all_fake_samples += [sample] 
+
+        # Plot only a subset of it on WB 
+        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
+        self.wandb.log({"images": self.wandb.Image(grid_img)})
+
+        # Compute FID score 
+        if compute_fid_score:
+            ### Generate samples from the training data 
+            all_real_samples = [] 
+            for ii in range(iters):
+                batch, cond = next(self.data)
+                all_real_samples += [batch]
+        
+            assert len(all_real_samples) == len(all_fake_samples)
+
+            ### Compute FID score using Pytorch ignite.metrics
+            print("computing FID score...")
+            metric = FID()
+            metric.update((all_fake_samples, all_real_samples))
+            fid_score = metric.compute()
+            metric.reset()
+            self.wandb.log({"FID": fid_score})
+        timer.stop()
+        #pdb.set_trace()
         
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
@@ -221,6 +266,8 @@ class TrainLoop:
 
     def forward_backward(self, batch, cond):
         self.mp_trainer.zero_grad()
+        running_avg_loss = AverageMeter('Loss', ':.4e')
+        
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch].to(dist_util.dev())
             micro_cond = {
@@ -251,10 +298,13 @@ class TrainLoop:
 
             loss = (losses["loss"] * weights).mean()
             #import pdb; pdb.set_trace()
+            running_avg_loss.update(losses["mse"].mean().item(), micro.nelement())
+            self.running_avg_mse = running_avg_loss.return_avg()
             self.wandb.log({"loss": (losses["loss"]* weights).mean()})
             self.wandb.log({"mse": (losses["mse"]* weights).mean()})
+            self.wandb.log({"running_mse": self.running_avg_mse})
             self.wandb.log({"vb": (losses["vb"]* weights).mean()})
-
+            
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
@@ -349,3 +399,50 @@ def log_loss_dict(diffusion, ts, losses):
         for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self, name, fmt=':f'):
+        self.name = name
+        self.fmt = fmt
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+    def return_avg(self):
+        return self.avg
+    
+    def __str__(self):
+        fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
+        return fmtstr.format(**self.__dict__)
+
+
+class Timer():
+    """Computes time taken between two lines of code"""
+    def __init__(self):
+        self.start = time.time()
+
+    def stop(self):
+        self.end = time.time()
+        self.compute_time_taken()
+
+    def compute_time_taken(self):
+        hours, rem = divmod(self.end-self.start, 3600)
+        minutes, seconds = divmod(rem, 60)
+        print("{:0>2}H:{:0>2}M:{:05.2f}S".format(int(hours),int(minutes),seconds))
+        self.reset()
+
+    def reset(self): 
+        self.start = 0
+        self.end = 0 
