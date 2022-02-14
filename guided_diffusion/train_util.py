@@ -167,6 +167,7 @@ class TrainLoop:
             state_dict = dist_util.load_state_dict(
                 opt_checkpoint, map_location=dist_util.dev()
             )
+            pdb.set_trace()
             self.opt.load_state_dict(state_dict)
 
     def run_loop(self):
@@ -180,7 +181,7 @@ class TrainLoop:
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
-            if self.step % (self.log_interval*100) == 0:
+            if self.step % (self.log_interval*1000) == 0:
                 self.log_samples()    
             if self.step % self.save_interval == 0:# and self.step > 0:
                 if self.step < 100000:
@@ -222,14 +223,14 @@ class TrainLoop:
             iters = 1
 
         self.model.eval()
-        logger.log(f"Generating real images from the dataset...")
+        # logger.log(f"Generating real images from the dataset...")
         all_real_samples = [] 
         for ii in range(iters):
             batch, cond = next(self.data)
             all_real_samples += [batch]
         
-        grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
-        self.wandb.log({"Real images": self.wandb.Image(grid_img)})
+        # grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
+        # self.wandb.log({"Real images": self.wandb.Image(grid_img)})
 
         timer = Timer()
         timer.begin()
