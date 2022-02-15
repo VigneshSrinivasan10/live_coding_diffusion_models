@@ -127,17 +127,21 @@ class TrainLoop:
                 # import pdb; pdb.set_trace()
                 # self.model.load_state_dict(
                 #     dist_util.load_state_dict(resume_checkpoint, map_location="cpu")
-                # )
-                # import pdb; pdb.set_trace()
-                
+                # )             
                 check = dist_util.load_state_dict(
                         resume_checkpoint, map_location=dist_util.dev()
                 )
-                print('finished loading using dist util')
-                self.model.load_state_dict(
-                    check
-                )
-                print('finished loading')
+                #pdb.set_trace()
+                if '_diffusion' in resume_checkpoint:
+                    for k,v in check.items():
+                        if 'time_embed' in k or 'input_blocks' in k or 'middle_block' in k:
+                            self.model.state_dict()[k].copy_(v.data)
+                    logger.log(f"Finished loading only the input and middle blocks")
+                else:
+                    self.model.load_state_dict(
+                        check
+                    )
+                    logger.log(f"Finished loading")
 
         dist_util.sync_params(self.model.parameters())
 
@@ -184,19 +188,19 @@ class TrainLoop:
             if self.step % (self.log_interval*1000) == 0:
                 self.log_samples()    
             if self.step % self.save_interval == 0:# and self.step > 0:
-                if self.step < 100000:
-                    self.save() 
-                elif self.running_avg_mse < self.previous_best:
-                    self.previous_best = self.running_avg_mse 
-                    counter_to_stop = 0
-                    self.save()
-                else:
-                    print('The running avg MSE is growing, so skipped saving the model')
-                    counter_to_stop += 1
-                    if counter_to_stop == 5:
-                        print('The running avg MSE is growing for the last 5xsave_interval iters...ABANDON SHIP!!!')
-                        import sys
-                        sys.exit()
+                #if self.step < 100000:
+                self.save() 
+                # elif self.running_avg_mse < self.previous_best:
+                #     self.previous_best = self.running_avg_mse 
+                #     counter_to_stop = 0
+                #     self.save()
+                # else:
+                #     print('The running avg MSE is growing, so skipped saving the model')
+                #     counter_to_stop += 1
+                #     if counter_to_stop == 5:
+                #         print('The running avg MSE is growing for the last 5xsave_interval iters...ABANDON SHIP!!!')
+                #         import sys
+                #         sys.exit()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                     return

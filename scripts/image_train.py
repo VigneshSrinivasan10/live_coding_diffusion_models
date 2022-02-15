@@ -1,6 +1,7 @@
 """
 Train a diffusion model on images.
 """
+import readline 
 import wandb 
 wandb.init(project="adm-stl-resume-final", entity="research")
 
