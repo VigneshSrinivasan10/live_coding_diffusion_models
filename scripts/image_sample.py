@@ -57,86 +57,89 @@ def main():
     logger.log("sampling...")
     all_images = []
     all_labels = []
-    while len(all_images) * args.batch_size < args.num_samples:
-        model_kwargs = {}
-        if args.class_cond:
-            classes = th.randint(
-                low=0, high=NUM_CLASSES, size=(args.batch_size,), device=dist_util.dev()
-            )
-            model_kwargs["y"] = classes
-        sample_fn = (
-            diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
+    #while len(all_images) * args.batch_size < args.num_samples:
+
+    model_kwargs = {}
+    if args.class_cond:
+        classes = th.randint(
+            low=0, high=NUM_CLASSES, size=(args.batch_size,), device=dist_util.dev()
         )
+        model_kwargs["y"] = classes
+    sample_fn = (
+        diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
+    )
 
-        total_num_samples = args.num_samples
-        iters = total_num_samples // args.batch_size
+    total_num_samples = args.num_samples
+    iters = total_num_samples // args.batch_size
 
-        ### Generate samples from the training data
-        logger.log("creating data loader...")
-        data = load_data(
-            data_dir=args.data_dir,
-            batch_size=args.batch_size,
-            image_size=args.image_size,
-            class_cond=args.class_cond,
+    ### Generate samples from the training data
+    logger.log("creating data loader...")
+    data = load_data(
+        data_dir=args.data_dir,
+        batch_size=args.batch_size,
+        image_size=args.image_size,
+        class_cond=args.class_cond,
+    )
+
+    logger.log("Generating real images from data loader...")
+    all_real_samples = [] 
+    for ii in range(iters):
+        batch, cond = next(data)
+        all_real_samples += [batch]
+        #grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
+        #wandb.log({"Real images": wandb.Image(grid_img)})
+
+    timer = Timer()
+    timer.begin()
+    logger.log("Generating fake images from the model...")
+    all_fake_samples = [] 
+    for ii in tqdm(range(iters)):
+        sample = sample_fn(
+            model,
+            (args.batch_size, 3, args.image_size, args.image_size),
+            clip_denoised=args.clip_denoised,
+            model_kwargs=model_kwargs,
         )
-
-        logger.log("Plotting real images from data loader...")
-        all_real_samples = [] 
-        for ii in tqdm(range(iters)):
-            batch, cond = next(data)
-            all_real_samples += [batch]
-            grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
-            wandb.log({"Real images": wandb.Image(grid_img)})
-    
-        timer = Timer()
-        timer.begin()
-        logger.log("Plotting fake images from the model...")
-        all_fake_samples = [] 
-        for ii in tqdm(range(iters)):
-            sample = sample_fn(
-                model,
-                (args.batch_size, 3, args.image_size, args.image_size),
-                clip_denoised=args.clip_denoised,
-                model_kwargs=model_kwargs,
-            )
-            sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-            sample = sample.contiguous()
-
-            all_fake_samples += [sample]
-            grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
-            wandb.log({"Fake images": wandb.Image(grid_img)})
-
-        timer.stop()
-        
-        assert len(all_real_samples) == len(all_fake_samples)
-
-        all_real_samples = torch.stack(all_real_samples)
-        all_fake_samples = torch.stack(all_fake_samples)
-
-        ### Compute FID score using Pytorch ignite.metrics
-        print("computing FID score...")
-        metric = FID()
-        metric.update((all_fake_samples, all_real_samples))
-        fid_score = metric.compute()
-        metric.reset()
-        wandb.log({"FID": fid_score})
-        
-        '''
         sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-        sample = sample.permute(0, 2, 3, 1)
         sample = sample.contiguous()
 
-        gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
-        dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
-        all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
-        '''
-        if args.class_cond:
-            gathered_labels = [
-                th.zeros_like(classes) for _ in range(dist.get_world_size())
-            ]
-            dist.all_gather(gathered_labels, classes)
-            all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
-        # logger.log(f"created {len(all_images) * args.batch_size} samples")
+        all_fake_samples += [sample]
+
+    grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
+    wandb.log({"Fake images": wandb.Image(grid_img)})
+
+    timer.stop()
+
+    assert len(all_real_samples) == len(all_fake_samples)
+
+    all_real_samples = th.stack(all_real_samples)[0]
+    all_fake_samples = th.stack(all_fake_samples)[0]
+
+    ### Compute FID score using Pytorch ignite.metrics
+    print("computing FID score...")
+    metric = FID()
+    metric.update((all_fake_samples, all_real_samples))
+    fid_score = metric.compute()
+    print("FID score: {}".format(fid_score))
+    wandb.log({"FID": fid_score})
+    metric.reset()
+
+    '''
+    sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
+    sample = sample.permute(0, 2, 3, 1)
+    sample = sample.contiguous()
+
+    gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
+    dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
+    all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
+    '''
+    if args.class_cond:
+        gathered_labels = [
+            th.zeros_like(classes) for _ in range(dist.get_world_size())
+        ]
+        dist.all_gather(gathered_labels, classes)
+        all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
+    # logger.log(f"created {len(all_images) * args.batch_size} samples")
 
         
     '''
