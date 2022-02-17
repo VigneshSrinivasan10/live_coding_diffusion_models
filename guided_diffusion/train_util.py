@@ -182,9 +182,9 @@ class TrainLoop:
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
             batch, cond = next(self.data)
-            self.run_step(batch, cond)
-            if self.step % self.log_interval == 0:
-                logger.dumpkvs()
+            #self.run_step(batch, cond)
+            #if self.step % self.log_interval == 0:
+            #    logger.dumpkvs()
             if self.step % (self.log_interval*1000) == 0:
                 self.log_samples()    
             if self.step % self.save_interval == 0:# and self.step > 0:
@@ -258,6 +258,7 @@ class TrainLoop:
         self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
         timer.stop()
 
+        pdb.set_trace()
         timer.begin()
         # Compute FID score 
         if compute_fid_score:

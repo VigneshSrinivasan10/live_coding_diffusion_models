@@ -4,7 +4,7 @@ training_folder=${date_time}_${comments}
 data_folder="/home/teamshare/Zalando_Research/fullbody_models_Jan2021/m/"
 
 reload="True"
-from_imagenet="True"
+from_imagenet="False"
 
 if [ "${reload}" = "True" ]; then
     if [ "${from_imagenet}" = "True" ]; then
@@ -17,6 +17,7 @@ if [ "${reload}" = "True" ]; then
 	model_path="training/07_02_2022_13_46_05_256_from_scratch/model.pt" # add the model here
 	#model_path='training/08_02_2022_13_52_55_256_resume_training/model.pt'
 	model_path="training/14_02_2022_15_52_35_training_from_scratch_multigpu/model100000.pt"
+	model_path="training/15_02_2022_10_05_27_finetuning_from_multigpu_training/model.pt"
     fi
     reload_ckpt="--use_checkpoint True --resume_checkpoint ${model_path}"
 else
