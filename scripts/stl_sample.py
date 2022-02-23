@@ -12,6 +12,7 @@ import torch as th
 import torchvision
 from ignite.metrics.gan import FID
 from torchvision.utils import save_image
+import torch.nn.functional as F
 
 from guided_diffusion import dist_util, logger
 from guided_diffusion.image_datasets import load_data
@@ -141,7 +142,7 @@ def compute_fid_score(args):
 
         sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
         sample = sample.contiguous()
-
+        sample = F.interpolate(sample, size=299)
         all_fake_samples += [sample] 
 
         if ii == 0: 
@@ -161,6 +162,7 @@ def compute_fid_score(args):
     all_real_samples = [] 
     for ii in range(iters):
         batch, cond = next(data)
+        batch = F.interpolate(batch, size=299)
         all_real_samples += [batch]
     #timer.begin()
     # Compute FID score 
@@ -174,6 +176,7 @@ def compute_fid_score(args):
 
         ### Compute FID score using Pytorch ignite.metrics
         metric = FID()
+        pdb.set_trace()
         metric.update((all_fake_samples, all_real_samples))
         fid_score = metric.compute()
         print(fid_score)

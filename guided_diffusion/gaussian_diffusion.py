@@ -130,6 +130,7 @@ class GaussianDiffusion:
         self.rescale_timesteps = rescale_timesteps
 
         # Use float64 for accuracy.
+        #import pdb; pdb.set_trace()
         betas = np.array(betas, dtype=np.float64)
         self.betas = betas
         assert len(betas.shape) == 1, "betas must be 1-D"
