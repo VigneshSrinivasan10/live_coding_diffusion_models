@@ -27,7 +27,7 @@ from guided_diffusion.script_util import (
         
 
 def save_all_steps_samples(args):
-    dist_util.setup_dist()
+    dist_util.setup_dist(args)
     logger.configure()
 
     #pdb.set_trace()
@@ -92,10 +92,16 @@ def save_all_steps_samples(args):
 
 
 def compute_fid_score(args):
-    dist_util.setup_dist()
+    dist_util.setup_dist(args)
     logger.configure()
 
-    #pdb.set_trace()
+    sampling_method = 'ddpm' if not args.use_ddim else 'ddim'
+    if sampling_method == 'ddpm':
+        num_steps = 1000 #args.diffusion_steps
+    else:
+        num_steps = args.timestep_respacing.replace('ddim', '')
+
+    print('Sampling method: {} with steps'.format(sampling_method, num_steps))
     wandb.config = vars(args)       
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
@@ -128,10 +134,17 @@ def compute_fid_score(args):
 
     
     model.eval()
+    # '''
+    
     ### Generate fake samples from the model 
     logger.log(f"Generating fake images from the model...")
     all_fake_samples = []
     #pdb.set_trace()
+    counter = 0
+    save_path = 'fid_score_verification/{}_{}_fake'.format(sampling_method, num_steps)
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+        
     for ii in tqdm(range(iters)):
         sample = sample_fn(
             model,
@@ -145,12 +158,15 @@ def compute_fid_score(args):
         sample = F.interpolate(sample, size=299)
         all_fake_samples += [sample] 
 
+        for k, sam in enumerate(sample):
+            save_image(sam/255,f"{save_path}/{counter:05d}.png") #.format(save_path, s))
+            counter += 1
         if ii == 0: 
             # Plot only a subset of it on WB 
             grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
             wandb.log({"Fake images": wandb.Image(grid_img)})
 
-            
+    # '''
     #pdb.set_trace()
     logger.log("creating data loader...")
     data = load_data(
@@ -160,10 +176,22 @@ def compute_fid_score(args):
         class_cond=args.class_cond,
     )
     all_real_samples = [] 
+    counter = 0
+    save_path = 'fid_score_verification/original'
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
     for ii in range(iters):
         batch, cond = next(data)
         batch = F.interpolate(batch, size=299)
+        batch = ((batch + 1) * 127.5).clamp(0, 255).to(th.uint8)
+        batch = batch.contiguous()
         all_real_samples += [batch]
+        # for k, sam in enumerate(batch):
+        #     save_image(sam/255,f"{save_path}/{counter:05d}.png") #.format(save_path, s))
+        #     counter += 1
+    
+            
     #timer.begin()
     # Compute FID score 
     if compute_fid_score:
@@ -184,7 +212,10 @@ def compute_fid_score(args):
         wandb.log({"FID": fid_score})
     #timer.stop()
     #pdb.set_trace()
-
+    print('Sampling method: {} with steps'.format(sampling_method, num_steps))
+    with open("fid_scores/{}_{}.txt".format(sampling_method, num_steps), "w") as text_file:
+        print(f"{fid_score}", file=text_file)
+    
 def create_argparser():
     defaults = dict(
         clip_denoised=True,
@@ -203,6 +234,7 @@ def create_argparser():
         use_fp16=False,
         fp16_scale_growth=1e-3,
         save_all_steps=False,
+        gpu_id='0',
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
