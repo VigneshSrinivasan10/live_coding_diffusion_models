@@ -23,7 +23,7 @@ from guided_diffusion.train_util import TrainLoop
 def main():
     args = create_argparser().parse_args()
 
-    dist_util.setup_dist()
+    dist_util.setup_dist(args)
     logger.configure()
 
     wandb.config = vars(args)       
