@@ -141,7 +141,7 @@ def compute_fid_score(args):
     all_fake_samples = []
     #pdb.set_trace()
     counter = 0
-    save_path = 'fid_score_verification/{}_{}_fake'.format(sampling_method, num_steps)
+    save_path = 'fid_score_verification/{}_{}_{}_fake'.format(args.method_name, sampling_method, num_steps)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
         
@@ -199,8 +199,8 @@ def compute_fid_score(args):
         ### Generate samples from the training data 
         assert len(all_real_samples) == len(all_fake_samples)
 
-        all_real_samples = th.stack(all_real_samples)[0]
-        all_fake_samples = th.stack(all_fake_samples)[0]
+        all_real_samples = th.stack(all_real_samples)[0]/255
+        all_fake_samples = th.stack(all_fake_samples)[0]/255
 
         ### Compute FID score using Pytorch ignite.metrics
         metric = FID()
@@ -213,7 +213,7 @@ def compute_fid_score(args):
     #timer.stop()
     #pdb.set_trace()
     print('Sampling method: {} with steps'.format(sampling_method, num_steps))
-    with open("fid_scores/{}_{}.txt".format(sampling_method, num_steps), "w") as text_file:
+    with open("fid_scores/{}_{}_{}.txt".format(args.method_name, sampling_method, num_steps), "w") as text_file:
         print(f"{fid_score}", file=text_file)
     
 def create_argparser():
@@ -235,6 +235,7 @@ def create_argparser():
         fp16_scale_growth=1e-3,
         save_all_steps=False,
         gpu_id='0',
+        method_name='training_from_scratch',
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
