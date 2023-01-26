@@ -60,6 +60,7 @@ def main():
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
         wandb=wandb,
+        num_classes=args.num_classes,
     ).run_loop()
 
 
@@ -78,6 +79,7 @@ def create_argparser():
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        num_classes=10
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

@@ -44,6 +44,7 @@ class TrainLoop:
         weight_decay=0.0,
         lr_anneal_steps=0,
         wandb='',
+        num_classes=10,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -182,12 +183,12 @@ class TrainLoop:
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
             batch, cond = next(self.data)
-            #self.run_step(batch, cond)
+            self.run_step(batch, cond)
             #if self.step % self.log_interval == 0:
             #    logger.dumpkvs()
-            if self.step % (self.log_interval*1000) == 0:
+            if self.step % (self.log_interval*100) == 0:
                 self.log_samples()    
-            if self.step % self.save_interval == 0:# and self.step > 0:
+            if self.step % self.save_interval == 0 and self.step > 0:
                 #if self.step < 100000:
                 self.save() 
                 # elif self.running_avg_mse < self.previous_best:
@@ -236,15 +237,18 @@ class TrainLoop:
         # grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
         # self.wandb.log({"Real images": self.wandb.Image(grid_img)})
 
+        # model_kwargs = {"y": cond[i : i + self.microbatch].to(dist_util.dev())}
+
         timer = Timer()
         timer.begin()
         ### Generate fake samples from the model 
         logger.log(f"Generating fake images from the model...")
         all_fake_samples = [] 
         for ii in tqdm(range(iters)):
+            model_kwargs = {"y": cond.to(dist_util.dev())}
             sample = sample_fn(
                 self.model,
-                (self.batch_size, 3, 256, 256), # remove hardcode later
+                (self.batch_size, 1, 32, 32), # remove hardcode later
                 clip_denoised=True, 
                 model_kwargs=model_kwargs,
             )
@@ -256,26 +260,8 @@ class TrainLoop:
         # Plot only a subset of it on WB 
         grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
         self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
-        timer.stop()
 
-        pdb.set_trace()
-        timer.begin()
-        # Compute FID score 
-        if compute_fid_score:
-            logger.log(f"Computing FID score...")
-            ### Generate samples from the training data 
-            assert len(all_real_samples) == len(all_fake_samples)
 
-            all_real_samples = th.stack(all_real_samples)[0]
-            all_fake_samples = th.stack(all_fake_samples)[0]
-            
-            ### Compute FID score using Pytorch ignite.metrics
-            metric = FID()
-            metric.update((all_fake_samples, all_real_samples))
-            fid_score = metric.compute()
-            metric.reset()
-            self.wandb.log({"FID": fid_score})
-        timer.stop()
         #pdb.set_trace()
         
     def run_step(self, batch, cond):
@@ -293,9 +279,10 @@ class TrainLoop:
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch].to(dist_util.dev())
             micro_cond = {
-                k: v[i : i + self.microbatch].to(dist_util.dev())
-                for k, v in cond.items()
+                "y": cond[i : i + self.microbatch].to(dist_util.dev())
+                #for k, v in cond.items()
             }
+            
             last_batch = (i + self.microbatch) >= batch.shape[0]
             t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
 
@@ -319,13 +306,9 @@ class TrainLoop:
                 )
 
             loss = (losses["loss"] * weights).mean()
-            #import pdb; pdb.set_trace()
-            running_avg_loss.update(losses["mse"].mean().item(), micro.nelement())
-            self.running_avg_mse = running_avg_loss.return_avg()
+            
             self.wandb.log({"loss": (losses["loss"]* weights).mean()})
-            self.wandb.log({"mse": (losses["mse"]* weights).mean()})
-            self.wandb.log({"running_mse": self.running_avg_mse})
-            self.wandb.log({"vb": (losses["vb"]* weights).mean()})
+                        
             
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}

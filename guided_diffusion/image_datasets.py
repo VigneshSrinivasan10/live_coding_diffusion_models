@@ -7,6 +7,7 @@ from mpi4py import MPI
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
+from torchvision import datasets
 
 import torchvision.transforms as transforms
 
@@ -68,7 +69,7 @@ def load_data(
     :param deterministic: if True, yield results in a deterministic order.
     :param random_crop: if True, randomly crop the images for augmentation.
     :param random_flip: if True, randomly flip the images for augmentation.
-    """
+    
     if not data_dir:
         raise ValueError("unspecified data directory")
     all_files = _list_image_files_recursively(data_dir)
@@ -103,8 +104,21 @@ def load_data(
         loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, num_workers=1, drop_last=True
         )
+    """
+    # Define a transform to normalize the data
+    transform = transforms.Compose([transforms.Resize((32,32)),
+                                    transforms.ToTensor(),
+                                transforms.Normalize((0.5,), (0.5,))])
+
+    # Download and load the training data
+    trainset = datasets.FashionMNIST('~/.pytorch/F_MNIST_data/', download=True, train=True, transform=transform)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+
+    # Download and load the test data
+    testset = datasets.FashionMNIST('~/.pytorch/F_MNIST_data/', download=True, train=False, transform=transform)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
     while True:
-        yield from loader
+        yield from trainloader
 
 
 def _list_image_files_recursively(data_dir):
