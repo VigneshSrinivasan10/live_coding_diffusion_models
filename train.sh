@@ -3,11 +3,9 @@ comments=$1
 training_folder=${date_time}_${comments}
 
 export PYTHONPATH=$(pwd)
-export OPENAI_LOGDIR=/home/vsrinivasan/Projects/live_coding_diffusion_models/training/${training_folder}
 
-
-TRAIN_FLAGS="--batch_size 16 --lr 3e-5 --save_interval 10000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
-mpiexec -n 1 python  scripts/image_train.py \
+TRAIN_FLAGS="--batch_size 64 --lr 3e-6 --save_interval 10000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
+WANDB_NAME=${comments} mpiexec -n 1 python  scripts/image_train.py \
 	--data_dir "./" \
 	--image_size 32 \
 	--num_classes 10 \

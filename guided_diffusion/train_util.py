@@ -217,15 +217,7 @@ class TrainLoop:
             self.diffusion.p_sample_loop if not self.use_ddim else self.diffusion.ddim_sample_loop
         )
 
-        compute_fid_score = True
-        # if self.step % 50000 == 0: # and self.step > 0:
-        #     compute_fid_score = True
-
-        if compute_fid_score:
-            total_num_samples = 16
-            iters = total_num_samples // self.batch_size
-        else:
-            iters = 1
+        iters = 1
 
         self.model.eval()
         # logger.log(f"Generating real images from the dataset...")
@@ -234,13 +226,9 @@ class TrainLoop:
             batch, cond = next(self.data)
             all_real_samples += [batch]
         
-        # grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
-        # self.wandb.log({"Real images": self.wandb.Image(grid_img)})
+        grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
+        self.wandb.log({"Real images": self.wandb.Image(grid_img)})
 
-        # model_kwargs = {"y": cond[i : i + self.microbatch].to(dist_util.dev())}
-
-        timer = Timer()
-        timer.begin()
         ### Generate fake samples from the model 
         logger.log(f"Generating fake images from the model...")
         all_fake_samples = [] 
@@ -262,7 +250,6 @@ class TrainLoop:
         self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
 
 
-        #pdb.set_trace()
         
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
