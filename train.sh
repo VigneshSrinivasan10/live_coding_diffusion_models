@@ -4,14 +4,14 @@ training_folder=${date_time}_${comments}
 
 export PYTHONPATH=$(pwd)
 
-TRAIN_FLAGS="--batch_size 64 --lr 3e-6 --save_interval 10000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
-WANDB_NAME=${comments} mpiexec -n 1 python  scripts/image_train.py \
+TRAIN_FLAGS="--batch_size 64 --lr 3e-6 --save_interval 1000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
+WANDB_NAME=${comments} mpiexec -n 1 python3  scripts/image_train.py \
 	--data_dir "./" \
 	--image_size 32 \
 	--num_classes 10 \
 	--class_cond True \
 	--learn_sigma False \
-	--num_channels 256 \
+	--num_channels 128 \
 	--num_res_blocks 2 \
 	--num_head_channels 64 \
 	--attention_resolutions 32,16,8 \

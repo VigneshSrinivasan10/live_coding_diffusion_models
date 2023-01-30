@@ -11,7 +11,7 @@ import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 import torchvision
-from ignite.metrics.gan import FID
+
 
 from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer

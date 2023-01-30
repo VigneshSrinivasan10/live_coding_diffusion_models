@@ -3,7 +3,16 @@
 This is the codebase for [Diffusion Models Beat GANS on Image Synthesis](http://arxiv.org/abs/2105.05233).
 
 # Create the virtual env
-conda env create -f virtualenv.yml
+
+```
+conda create --name diffusion python=3.9
+conda install wandb==0.12.9
+conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+```
+
+or
+
+`conda env create -f virtualenv.yml`
 
 # Data directory to for logging
 
