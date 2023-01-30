@@ -3,6 +3,7 @@ comments=$1
 training_folder=${date_time}_${comments}
 
 export PYTHONPATH=$(pwd)
+export OPENAI_LOGDIR=${data_dir}/${training_folder}
 
 TRAIN_FLAGS="--batch_size 64 --lr 3e-6 --save_interval 1000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
 WANDB_NAME=${comments} mpiexec -n 1 python3  scripts/image_train.py \
