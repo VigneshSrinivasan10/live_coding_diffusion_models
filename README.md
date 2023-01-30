@@ -18,7 +18,7 @@ or
 
 Please change `${data_dir}` to the directory of your choice. 
 ```
-${datadir}=/home/vsrinivasan/Projects/live_coding_diffusion_models/training/
+${datadir}=$HOME
 export OPENAI_LOGDIR=${data_dir}/${training_folder}
 ```
 
