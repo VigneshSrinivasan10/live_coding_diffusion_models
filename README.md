@@ -6,8 +6,7 @@ This is the codebase for [Diffusion Models Beat GANS on Image Synthesis](http://
 
 ```
 conda create --name diffusion python=3.9
-conda install wandb==0.12.9
-conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+pip install -r requirements.txt
 ```
 
 or
@@ -16,10 +15,10 @@ or
 
 # Data directory to for logging
 
-Please change `${data_dir}` to the directory of your choice. 
+Please define `${data_dir}` to the directory of your choice. 
 ```
-${datadir}=$HOME
-export OPENAI_LOGDIR=${data_dir}/${training_folder}
+data_dir=$(pwd)/training
+
 ```
 
 # Download pre-trained models
