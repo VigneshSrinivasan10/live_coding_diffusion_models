@@ -11,7 +11,8 @@ import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 import torchvision
-
+from torchvision.utils import save_image
+import matplotlib.pyplot as plt 
 
 from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
@@ -172,36 +173,27 @@ class TrainLoop:
             state_dict = dist_util.load_state_dict(
                 opt_checkpoint, map_location=dist_util.dev()
             )
-            pdb.set_trace()
             self.opt.load_state_dict(state_dict)
 
     def run_loop(self):
         self.previous_best = 1e7
-        counter_to_stop = 0 
+        counter_to_stop = 0
+    
+        os.makedirs(get_blob_logdir()+'/real_images')
+        os.makedirs(get_blob_logdir()+'/fake_images')
+        
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
             batch, cond = next(self.data)
             self.run_step(batch, cond)
-            #if self.step % self.log_interval == 0:
-            #    logger.dumpkvs()
+            if self.step % self.log_interval == 0:
+                logger.dumpkvs()
             if self.step % (self.log_interval*100) == 0:
                 self.log_samples()    
             if self.step % self.save_interval == 0 and self.step > 0:
-                #if self.step < 100000:
                 self.save() 
-                # elif self.running_avg_mse < self.previous_best:
-                #     self.previous_best = self.running_avg_mse 
-                #     counter_to_stop = 0
-                #     self.save()
-                # else:
-                #     print('The running avg MSE is growing, so skipped saving the model')
-                #     counter_to_stop += 1
-                #     if counter_to_stop == 5:
-                #         print('The running avg MSE is growing for the last 5xsave_interval iters...ABANDON SHIP!!!')
-                #         import sys
-                #         sys.exit()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                     return
@@ -220,37 +212,43 @@ class TrainLoop:
         iters = 1
 
         self.model.eval()
-        # logger.log(f"Generating real images from the dataset...")
-        all_real_samples = [] 
-        for ii in range(iters):
-            batch, cond = next(self.data)
-            all_real_samples += [batch]
+        logger.log(f"Generating real images from the dataset...")
+        batch, cond = next(self.data)
+        batch = (batch+1)/2
+
         
-        grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
+        save_path = get_blob_logdir() + '/real_images/{}.png'.format(self.step)
+        grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).to(th.uint8)
         if self.wandb is not None:
             self.wandb.log({"Real images": self.wandb.Image(grid_img)})
-
+        else:
+            #plt.imshow( grid_image.permute(1, 2, 0)  )
+            save_image(grid_img.float(), save_path)
+    
+            
         ### Generate fake samples from the model 
         logger.log(f"Generating fake images from the model...")
-        all_fake_samples = [] 
-        for ii in tqdm(range(iters)):
-            model_kwargs = {"y": cond.to(dist_util.dev())}
-            sample = sample_fn(
-                self.model,
-                (self.batch_size, 1, 32, 32), # remove hardcode later
-                clip_denoised=True, 
-                model_kwargs=model_kwargs,
-            )
-            sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-            sample = sample.contiguous()
 
-            all_fake_samples += [sample] 
+        
+        model_kwargs = {"y": cond.to(dist_util.dev())}
+        sample = sample_fn(
+            self.model,
+            (self.batch_size, 1, 32, 32), # remove hardcode later
+            clip_denoised=True, 
+            model_kwargs=model_kwargs,
+        )
+        sample = ((sample + 1) / 2).to(th.uint8)
+        sample = sample.contiguous()
 
+        save_path = get_blob_logdir() + '/fake_images/{}.png'.format(self.step)
         # Plot only a subset of it on WB 
-        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
+        grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4)
         if self.wandb is not None:
             self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
+        else:
+            save_image(grid_img.float(), save_path)
 
+            
 
         
     def run_step(self, batch, cond):

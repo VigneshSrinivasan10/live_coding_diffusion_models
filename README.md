@@ -6,19 +6,9 @@ This is the codebase for [Diffusion Models Beat GANS on Image Synthesis](http://
 
 ```
 conda create --name diffusion python=3.9
+conda activate diffusion
 pip install -r requirements.txt
-```
-
-or
-
-`conda env create -f virtualenv.yml`
-
-# Data directory to for logging
-
-Please define `${data_dir}` to the directory of your choice. 
-```
-data_dir=$(pwd)/training
-
+conda install mpi4py
 ```
 
 # Download pre-trained models

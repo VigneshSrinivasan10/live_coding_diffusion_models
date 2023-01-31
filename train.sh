@@ -14,7 +14,7 @@ WANDB=0
 if [ ${WANDB} -eq 1 ]; then
   WANDB_NAME=${comments}
 fi
-mpiexec -n 1 python3  scripts/image_train.py \
+mpiexec -n 1 python3 scripts/image_train.py \
 	--data_dir "./" \
 	--image_size 32 \
 	--num_classes 10 \
