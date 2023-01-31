@@ -1,13 +1,13 @@
 export PYTHONPATH=$(pwd)
 
-model_path="training/.pt"
-${test_dir}="fmnist_diffusion_models"
+model_path="training/31_01_2023_18_02_47_dummy/ema_0.9999.pt"
+method_name="diffusion_fmnist_ddpm"
 
 SAMPLE_FLAGS="--batch_size 10 --num_samples 100"
 
-WANDB_NAME=${comments} CUDA_VISIBLE_DEVICES=0 python  scripts/stl_sample.py \
-	--gpu_id $1 \
-	--method_name ${test_dir} \
+WANDB_NAME=${comments} CUDA_VISIBLE_DEVICES=0 python  scripts/fmnist_sample.py \
+	--gpu_id 0 \
+	--method_name ${method_name} \
 	--image_size 32 \
 	--class_cond False \
 	--learn_sigma True \

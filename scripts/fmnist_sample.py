@@ -2,9 +2,12 @@
 Train a diffusion model on images.
 """
 import os
-import wandb 
-wandb.init(project="fmnist-inference", entity="research")
-
+try:
+    import wandb 
+    wandb.init(project="live-coding-diffusion-models", entity="research")
+except:
+    wandb=None
+    
 import argparse
 import pdb
 from tqdm import tqdm
@@ -25,12 +28,13 @@ from guided_diffusion.script_util import (
 
         
 
-def save_all_steps_samples(args):
+def save_samples(args):
     dist_util.setup_dist(args)
     logger.configure()
 
     #pdb.set_trace()
-    wandb.config = vars(args)       
+    if args.wandb is not None:
+        wandb.config = vars(args)       
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
@@ -50,7 +54,7 @@ def save_all_steps_samples(args):
 
     logger.log("Sampling...")
     sample_fn = (
-            diffusion.p_all_sample_loop if not args.use_ddim else diffusion.ddim_all_sample_loop
+            diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
     )
     args.batch_size = 10
     iters = args.num_samples // args.batch_size
@@ -78,8 +82,12 @@ def save_all_steps_samples(args):
         all_samples += [sample]
 
     ### Saving images on wandb 
-    grid_img = torchvision.utils.make_grid(torch.cat(all_samples, dim=0), nrow=10).float()
-    wandb.log({"Samples": wandb.Image(grid_img)})
+    grid_img = torchvision.utils.make_grid(torch.cat(all_samples, dim=0), nrow=10)
+    save_path = args.method_name + '/generated_images.png'.format(self.step)
+    if args.wandb is not None:
+        wandb.log({"Samples": wandb.Image(grid_img)})
+    else:
+        save_image(grid_img.float(), save_path)            
 
     
 def create_argparser():
@@ -110,10 +118,8 @@ def create_argparser():
 
 def main():
     args = create_argparser().parse_args()
-    if args.save_all_steps:
-        save_all_steps_samples(args)
-    else:
-        compute_fid_score(args)
+    save_samples(args)
+    
 
         
 if __name__ == "__main__":

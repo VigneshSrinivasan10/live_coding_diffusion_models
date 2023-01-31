@@ -214,7 +214,7 @@ class TrainLoop:
         self.model.eval()
         logger.log(f"Generating real images from the dataset...")
         batch, cond = next(self.data)
-        batch = (batch+1)/2
+        batch = (batch+1) * 127.5
 
         
         save_path = get_blob_logdir() + '/real_images/{}.png'.format(self.step)
@@ -222,10 +222,9 @@ class TrainLoop:
         if self.wandb is not None:
             self.wandb.log({"Real images": self.wandb.Image(grid_img)})
         else:
-            #plt.imshow( grid_image.permute(1, 2, 0)  )
+            #plt.imshow( grid_image  )
             save_image(grid_img.float(), save_path)
     
-            
         ### Generate fake samples from the model 
         logger.log(f"Generating fake images from the model...")
 
@@ -237,7 +236,7 @@ class TrainLoop:
             clip_denoised=True, 
             model_kwargs=model_kwargs,
         )
-        sample = ((sample + 1) / 2).to(th.uint8)
+        sample = ((sample + 1) * 127.5).to(th.uint8)
         sample = sample.contiguous()
 
         save_path = get_blob_logdir() + '/fake_images/{}.png'.format(self.step)
@@ -246,9 +245,7 @@ class TrainLoop:
         if self.wandb is not None:
             self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
         else:
-            save_image(grid_img.float(), save_path)
-
-            
+            save_image(grid_img.float(), save_path)            
 
         
     def run_step(self, batch, cond):
