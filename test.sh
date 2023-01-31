@@ -3,14 +3,16 @@ export PYTHONPATH=$(pwd)
 model_path="training/31_01_2023_18_02_47_dummy/ema_0.9999.pt"
 method_name="diffusion_fmnist_ddpm"
 
-SAMPLE_FLAGS="--batch_size 10 --num_samples 100"
+export OPENAI_LOGDIR=$(pwd)/testing/${method_name}
+
+SAMPLE_FLAGS="--batch_size 10 --num_samples 10"
 
 WANDB_NAME=${comments} CUDA_VISIBLE_DEVICES=0 python  scripts/fmnist_sample.py \
 	--gpu_id 0 \
 	--method_name ${method_name} \
 	--image_size 32 \
-	--class_cond False \
-	--learn_sigma True \
+	--class_cond True \
+	--learn_sigma False \
 	--num_channels 256 \
 	--num_res_blocks 2 \
 	--num_head_channels 64 \

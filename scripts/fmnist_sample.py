@@ -69,7 +69,7 @@ def save_samples(args):
     for ii in tqdm(range(iters)):
         cond = th.ones([args.batch_size])
         cond *= ii  
-        model_kwargs = {"y": cond.to(dist_util.dev())}
+        model_kwargs = {"y": cond.to(dist_util.dev()).to(th.int64)}
         sample = sample_fn(
             model,
             (args.batch_size, 1, 32, 32), # remove hardcode later
@@ -82,8 +82,8 @@ def save_samples(args):
         all_samples += [sample]
 
     ### Saving images on wandb 
-    grid_img = torchvision.utils.make_grid(torch.cat(all_samples, dim=0), nrow=10)
-    save_path = args.method_name + '/generated_images.png'.format(self.step)
+    grid_img = torchvision.utils.make_grid(th.cat(all_samples, dim=0), nrow=10)
+    save_path = logger.get_dir() + '/generated_images.png'
     if args.wandb is not None:
         wandb.log({"Samples": wandb.Image(grid_img)})
     else:
@@ -110,7 +110,9 @@ def create_argparser():
         save_all_steps=False,
         gpu_id='0',
         method_name='training_from_scratch',
+        wandb=None,
     )
+    
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
