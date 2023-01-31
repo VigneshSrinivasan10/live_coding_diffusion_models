@@ -192,7 +192,7 @@ class TrainLoop:
                 logger.dumpkvs()
             if self.step % (self.log_interval*100) == 0:
                 self.log_samples()    
-            if self.step % self.save_interval == 0 and self.step > 0:
+            if self.step % self.save_interval == 0:# and self.step > 0:
                 self.save() 
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
@@ -321,11 +321,11 @@ class TrainLoop:
             if dist.get_rank() == 0:
                 logger.log(f"saving model {rate}...")
                 if not rate:
-                    #filename = f"model{(self.step+self.resume_step):06d}.pt"
-                    filename = f"model.pt"
+                    filename = f"model{(self.step+self.resume_step):06d}.pt"
+                    #filename = f"model.pt"
                 else:
-                    #filename = f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
-                    filename = f"ema_{rate}.pt"
+                    filename = f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
+                    #filename = f"ema_{rate}.pt"
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
 
@@ -335,8 +335,8 @@ class TrainLoop:
 
         if dist.get_rank() == 0:
             with bf.BlobFile(
-                #bf.join(get_blob_logdir(), f"opt{(self.step+self.resume_step):06d}.pt"),
-                bf.join(get_blob_logdir(), f"opt.pt"),
+                bf.join(get_blob_logdir(), f"opt{(self.step+self.resume_step):06d}.pt"),
+                #bf.join(get_blob_logdir(), f"opt.pt"),
                 "wb",
             ) as f:
                 th.save(self.opt.state_dict(), f)
