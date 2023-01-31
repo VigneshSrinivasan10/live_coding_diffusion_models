@@ -3,10 +3,18 @@ comments=$1
 training_folder=${date_time}_${comments}
 
 export PYTHONPATH=$(pwd)
+
+data_dir=$(pwd)/training
 export OPENAI_LOGDIR=${data_dir}/${training_folder}
+echo 'Logdir: '${OPENAI_LOGDIR}
 
 TRAIN_FLAGS="--batch_size 64 --lr 3e-6 --save_interval 1000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
-WANDB_NAME=${comments} mpiexec -n 1 python3  scripts/image_train.py \
+
+WANDB=0
+if [ ${WANDB} -eq 1 ]; then
+  WANDB_NAME=${comments}
+fi
+mpiexec -n 1 python3  scripts/image_train.py \
 	--data_dir "./" \
 	--image_size 32 \
 	--num_classes 10 \

@@ -227,7 +227,8 @@ class TrainLoop:
             all_real_samples += [batch]
         
         grid_img = torchvision.utils.make_grid(batch, nrow=batch.shape[0]//4).float()
-        self.wandb.log({"Real images": self.wandb.Image(grid_img)})
+        if self.wandb is not None:
+            self.wandb.log({"Real images": self.wandb.Image(grid_img)})
 
         ### Generate fake samples from the model 
         logger.log(f"Generating fake images from the model...")
@@ -247,7 +248,8 @@ class TrainLoop:
 
         # Plot only a subset of it on WB 
         grid_img = torchvision.utils.make_grid(sample, nrow=sample.shape[0]//4).float()
-        self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
+        if self.wandb is not None:
+            self.wandb.log({"Fake images": self.wandb.Image(grid_img)})
 
 
         
@@ -293,8 +295,8 @@ class TrainLoop:
                 )
 
             loss = (losses["loss"] * weights).mean()
-            
-            self.wandb.log({"loss": (losses["loss"]* weights).mean()})
+            if self.wandb is not None:
+                self.wandb.log({"loss": (losses["loss"]* weights).mean()})
                         
             
             log_loss_dict(

@@ -2,9 +2,12 @@
 Train a diffusion model on images.
 """
 import readline 
-import wandb 
-wandb.init(project="adm-stl-resume-final", entity="research")
 
+try:
+    import wandb 
+    wandb.init(project="live-coding-diffusion-models", entity="research")
+except:
+    wandb = None
 import argparse
 import pdb
 
@@ -26,7 +29,8 @@ def main():
     dist_util.setup_dist(args)
     logger.configure()
 
-    wandb.config = vars(args)       
+    if wandb is not None:
+        wandb.config = vars(args)       
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
