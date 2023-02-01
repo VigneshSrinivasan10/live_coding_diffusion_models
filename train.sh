@@ -8,7 +8,7 @@ data_dir=$(pwd)/training
 export OPENAI_LOGDIR=${data_dir}/${training_folder}
 echo 'Logdir: '${OPENAI_LOGDIR}
 
-TRAIN_FLAGS="--batch_size 96 --lr 3e-5 --save_interval 1000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
+TRAIN_FLAGS="--batch_size 32 --lr 3e-6 --save_interval 1000 --weight_decay 0.05" # --iterations 300000  --anneal_lr True"
 
 WANDB=0
 if [ ${WANDB} -eq 1 ]; then

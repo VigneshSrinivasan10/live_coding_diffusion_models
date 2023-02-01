@@ -19,6 +19,7 @@ pip install -e .
 # Download pre-trained models
 
 
+
 # Testing models
 
 ```
@@ -42,7 +43,9 @@ use `--timestep_respacing ddim250 --use_ddim True`
 
 # Run the training
 
+```
 sh train.sh exp1
+```
 
 # Single GPU training 
 ```
