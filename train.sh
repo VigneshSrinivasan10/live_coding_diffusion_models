@@ -26,8 +26,8 @@ python3 scripts/image_train.py \
 	--num_head_channels 64 \
 	--attention_resolutions 32,16,8 \
 	--dropout 0.1 \
-	--diffusion_steps 100 \
-	--noise_schedule cosine \
+	--diffusion_steps 1000 \
+	--noise_schedule linear \
 	--use_scale_shift_norm True \
 	--resblock_updown True \
 	--use_fp16 True \

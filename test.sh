@@ -20,7 +20,7 @@ CUDA_VISIBLE_DEVICES=0 python  scripts/fmnist_sample.py \
 	--attention_resolutions 32,16,8 \
 	--dropout 0.0 \
 	--diffusion_steps 1000 \
-	--noise_schedule linear \
+	--noise_schedule cosine \
 	--use_scale_shift_norm True \
 	--resblock_updown True \
 	--use_fp16 False \
