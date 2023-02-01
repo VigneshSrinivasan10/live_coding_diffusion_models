@@ -11,6 +11,11 @@ pip install -r requirements.txt
 conda install mpi4py
 ```
 
+Finally
+```
+pip install -e .
+```
+
 # Download pre-trained models
 
 
@@ -20,19 +25,24 @@ conda install mpi4py
 sh test.sh 
 ```
 
+To modify parameters in the test script
 ```
-SAMPLE_FLAGS="--batch_size 10 --num_samples 100"
+SAMPLE_FLAGS="--batch_size 2 --num_samples 20"
 ```
 
 # DDIM
-For sampling with 25 step DDIM:
+For sampling with 250 step DDIM:
 
 ```
-use `--timestep_respacing ddim25` and `--use_ddim True`
+use `--timestep_respacing ddim250 --use_ddim True`
 ```
 
 
 # Training models
+
+# Run the training
+
+sh train.sh exp1
 
 # Single GPU training 
 ```
@@ -46,6 +56,6 @@ mpiexec -n N python scripts/image_train.py $TRAIN_FLAGS
 
 # Training flags
 ```
-TRAIN_FLAGS="--iterations 300000 --anneal_lr True --batch_size 256 --lr 3e-4 --save_interval 10000 --weight_decay 0.05"
+TRAIN_FLAGS="--iterations 300000 --anneal_lr True --batch_size 4 --lr 3e-4 --save_interval 1000 --weight_decay 0.05"
 ```
 

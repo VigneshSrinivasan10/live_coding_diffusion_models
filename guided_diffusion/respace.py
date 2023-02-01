@@ -35,6 +35,12 @@ def space_timesteps(num_timesteps, section_counts):
             raise ValueError(
                 f"cannot create exactly {num_timesteps} steps with an integer stride"
             )
+        if section_counts.startswith("ddim") and num_timesteps == 27:
+            steps = space_timesteps(num_timesteps, "10,10,3,2,2")
+            # Help reduce DDIM artifacts from noisiest timesteps.
+            steps.remove(num_timesteps - 1)
+            steps.add(num_timesteps - 3)
+            return steps
         section_counts = [int(x) for x in section_counts.split(",")]
     size_per = num_timesteps // len(section_counts)
     extra = num_timesteps % len(section_counts)

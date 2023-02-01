@@ -1,13 +1,14 @@
 export PYTHONPATH=$(pwd)
 
-model_path="training/31_01_2023_18_02_47_dummy/ema_0.9999.pt"
-method_name="diffusion_fmnist_ddpm"
+model_path="training/31_01_2023_19_58_33_exp1/ema_0.9999_056000.pt"
+method_name="diffusion_fmnist_ddpm_56k"
 
 export OPENAI_LOGDIR=$(pwd)/testing/${method_name}
 
-SAMPLE_FLAGS="--batch_size 10 --num_samples 10"
+SAMPLE_FLAGS="--batch_size 10 --num_samples 10" # --timestep_respacing ddim27 --use_ddim True"
 
-WANDB_NAME=${comments} CUDA_VISIBLE_DEVICES=0 python  scripts/fmnist_sample.py \
+#WANDB_NAME=${method_name}
+CUDA_VISIBLE_DEVICES=0 python  scripts/fmnist_sample.py \
 	--gpu_id 0 \
 	--method_name ${method_name} \
 	--image_size 32 \
