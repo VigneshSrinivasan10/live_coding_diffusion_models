@@ -17,7 +17,7 @@ pip install -e .
 ```
 
 # Download pre-trained models
-
+TBD
 
 
 # Testing models
