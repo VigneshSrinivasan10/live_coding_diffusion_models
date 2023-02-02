@@ -1,5 +1,6 @@
 date_time=$(date '+%d_%m_%Y_%H_%M_%S');
 comments=$1
+
 training_folder=${date_time}_${comments}
 
 export PYTHONPATH=$(pwd)

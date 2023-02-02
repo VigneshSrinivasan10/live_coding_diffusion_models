@@ -111,11 +111,11 @@ def load_data(
                                 transforms.Normalize((0.5,), (0.5,))])
 
     # Download and load the training data
-    trainset = datasets.FashionMNIST('~/.pytorch/F_MNIST_data/', download=True, train=True, transform=transform)
+    trainset = datasets.CIFAR10('~/.pytorch/Cifar10_data/', download=True, train=True, transform=transform)
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
     # Download and load the test data
-    testset = datasets.FashionMNIST('~/.pytorch/F_MNIST_data/', download=True, train=False, transform=transform)
+    testset = datasets.CIFAR10('~/.pytorch/Cifar10_data/', download=True, train=False, transform=transform)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
     while True:
         yield from trainloader
