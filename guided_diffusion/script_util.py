@@ -167,7 +167,7 @@ def create_model(
 
     return UNetModel(
         image_size=image_size,
-        in_channels=1,
+        in_channels=3,
         model_channels=num_channels,
         out_channels=(3 if not learn_sigma else 2),
         num_res_blocks=num_res_blocks,
