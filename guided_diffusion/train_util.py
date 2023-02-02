@@ -232,7 +232,7 @@ class TrainLoop:
         model_kwargs = {"y": cond.to(dist_util.dev())}
         sample = sample_fn(
             self.model,
-            (self.batch_size, 1, 32, 32), # remove hardcode later
+            (self.batch_size, 3, 32, 32), # remove hardcode later
             clip_denoised=True, 
             model_kwargs=model_kwargs,
         )
