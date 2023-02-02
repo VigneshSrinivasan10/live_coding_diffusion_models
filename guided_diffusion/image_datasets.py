@@ -106,9 +106,9 @@ def load_data(
         )
     """
     # Define a transform to normalize the data
-    transform = transforms.Compose([transforms.Resize((32,32)),
+    transform = transforms.Compose([transforms.RandomCrop(32, padding=4),
                                     transforms.ToTensor(),
-                                transforms.Normalize((0.5,), (0.5,))])
+                                transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
 
     # Download and load the training data
     trainset = datasets.CIFAR10('~/.pytorch/Cifar10_data/', download=True, train=True, transform=transform)
